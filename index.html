@@ -22,7 +22,7 @@
   </main>
   <div class="toast" id="toast">已更新</div>
   <script>
-    const STORAGE_KEY="three-person-schedule-v2";
+    const STORAGE_KEY="three-person-schedule-v3";
     const SHEET_API_URL="https://script.google.com/macros/s/AKfycbyIJhP_OBUwRn0P_8_DA_AVGHnv6R8CYvigttDbIcIrIpZ0blvYr48OgRxprQMKiw1H/exec";
     const shifts=["早","午","晚","夜"];
     const weekNames=["日","一","二","三","四","五","六"];
@@ -32,14 +32,15 @@
     function toISO(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`}
     function addDays(iso,amount){const d=toLocalDate(iso);d.setDate(d.getDate()+amount);return toISO(d)}
     function formatDate(iso){const d=toLocalDate(iso);return `${d.getMonth()+1}/${d.getDate()}`}
-    function loadState(){try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));if(saved)return saved}catch{}return{people:["杰","國","斌"],startDate:"2026-06-08",values:structuredClone(defaultValues)}}
+    function defaultState(){return{people:["杰","國","斌"],startDate:"2026-06-08",values:structuredClone(defaultValues)}}
+    function loadState(){try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));if(saved)return saved}catch{}return defaultState()}
     function personLabel(value){return state.people[Number(value)]||""}
     function currentDays(){return state.values.map((values,index)=>{const iso=addDays(state.startDate,index),d=toLocalDate(iso);return{date:formatDate(iso),week:weekNames[d.getDay()],values}})}
     function sheetRowsFromState(){const rows=[["陪病時間資料"],["people",...state.people],["startDate",state.startDate],["date","week",...shifts]];currentDays().forEach(day=>rows.push([day.date,day.week,...day.values.map(personLabel)]));rows.push(["values",...state.values.map(v=>v.join(""))]);return rows}
     function stateFromSheetRows(values){if(!Array.isArray(values))return null;const p=values.find(r=>r[0]==="people"),s=values.find(r=>r[0]==="startDate"),v=values.find(r=>r[0]==="values");if(!p||!s||!v)return null;const nextValues=v.slice(1,9).map(item=>String(item||"").padEnd(4,"0").slice(0,4).split(""));if(nextValues.length!==8)return null;return{people:p.slice(1,4).map((name,i)=>String(name||`人員${i+1}`)),startDate:String(s[1]||"2026-06-08"),values:nextValues}}
     function setSyncStatus(text){document.getElementById("syncStatus").textContent=text}
     function callSheetApi(params){return new Promise((resolve,reject)=>{const cb=`sheetCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;const script=document.createElement("script");const search=new URLSearchParams({...params,callback:cb,t:Date.now()});window[cb]=data=>{delete window[cb];script.remove();resolve(data)};script.onerror=()=>{delete window[cb];script.remove();reject(new Error("sync failed"))};script.src=`${SHEET_API_URL}?${search.toString()}`;document.body.appendChild(script)})}
-    async function loadRemoteState(){try{const data=await callSheetApi({action:"load"});const remote=stateFromSheetRows(data.values);if(remote){state=remote;localStorage.setItem(STORAGE_KEY,JSON.stringify(state));render();setSyncStatus("已同步")}else await saveRemoteState()}catch{setSyncStatus("離線模式")}}
+    async function loadRemoteState(){try{const data=await callSheetApi({action:"load"});const remote=stateFromSheetRows(data.values);if(remote){state=remote;localStorage.setItem(STORAGE_KEY,JSON.stringify(state));render();setSyncStatus("已同步")}else{state=defaultState();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));render();await saveRemoteState()}}catch{setSyncStatus("離線模式")}}
     async function saveRemoteState(){setSyncStatus("儲存中");try{await callSheetApi({action:"save",payload:JSON.stringify({values:sheetRowsFromState()})});setSyncStatus("已儲存")}catch{setSyncStatus("未同步")}}
     function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));setSyncStatus("等待儲存");clearTimeout(saveTimer);saveTimer=setTimeout(saveRemoteState,500)}
     function showToast(text){const toast=document.getElementById("toast");toast.textContent=text;toast.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),1100)}
