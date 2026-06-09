@@ -22,13 +22,13 @@
   </main>
   <div class="toast" id="toast">已更新</div>
   <script>
-    const STORAGE_KEY="three-person-schedule-v3";
+    const STORAGE_KEY="three-person-schedule-v4";
     const SHEET_API_URL="https://script.google.com/macros/s/AKfycbyIJhP_OBUwRn0P_8_DA_AVGHnv6R8CYvigttDbIcIrIpZ0blvYr48OgRxprQMKiw1H/exec";
     const shifts=["早","午","晚","夜"];
     const weekNames=["日","一","二","三","四","五","六"];
     const defaultValues=[["0","0","1","1"],["1","1","1","1"],["1","1","1","0"],["0","1","1","1"],["1","1","1","1"],["1","1","1","1"],["0","0","0","0"],["0","0","0","1"]];
     let state=loadState(),activeDay=0,toastTimer,saveTimer;
-    function toLocalDate(iso){const [y,m,d]=iso.split("-").map(Number);return new Date(y,m-1,d)}
+    function toLocalDate(iso){const text=String(iso||"2026-06-08").slice(0,10);const [y,m,d]=text.split("-").map(Number);return new Date(y,m-1,d)}
     function toISO(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`}
     function addDays(iso,amount){const d=toLocalDate(iso);d.setDate(d.getDate()+amount);return toISO(d)}
     function formatDate(iso){const d=toLocalDate(iso);return `${d.getMonth()+1}/${d.getDate()}`}
@@ -36,8 +36,8 @@
     function loadState(){try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));if(saved)return saved}catch{}return defaultState()}
     function personLabel(value){return state.people[Number(value)]||""}
     function currentDays(){return state.values.map((values,index)=>{const iso=addDays(state.startDate,index),d=toLocalDate(iso);return{date:formatDate(iso),week:weekNames[d.getDay()],values}})}
-    function sheetRowsFromState(){const rows=[["陪病時間資料"],["people",...state.people],["startDate",state.startDate],["date","week",...shifts]];currentDays().forEach(day=>rows.push([day.date,day.week,...day.values.map(personLabel)]));rows.push(["values",...state.values.map(v=>v.join(""))]);return rows}
-    function stateFromSheetRows(values){if(!Array.isArray(values))return null;const p=values.find(r=>r[0]==="people"),s=values.find(r=>r[0]==="startDate"),v=values.find(r=>r[0]==="values");if(!p||!s||!v)return null;const nextValues=v.slice(1,9).map(item=>String(item||"").padEnd(4,"0").slice(0,4).split(""));if(nextValues.length!==8)return null;return{people:p.slice(1,4).map((name,i)=>String(name||`人員${i+1}`)),startDate:String(s[1]||"2026-06-08"),values:nextValues}}
+    function sheetRowsFromState(){const stateJson=JSON.stringify({people:state.people,startDate:state.startDate,values:state.values});const rows=[["陪病時間資料"],["state",stateJson],["people",...state.people],["startDate",state.startDate],["date","week",...shifts]];currentDays().forEach(day=>rows.push([day.date,day.week,...day.values.map(personLabel)]));rows.push(["values",...state.values.map(v=>v.join(""))]);return rows}
+    function stateFromSheetRows(values){if(!Array.isArray(values))return null;const stateRow=values.find(r=>r[0]==="state");if(stateRow&&stateRow[1]){try{const parsed=JSON.parse(String(stateRow[1]));if(parsed.people&&parsed.startDate&&parsed.values)return{people:parsed.people,startDate:String(parsed.startDate).slice(0,10),values:parsed.values}}catch{}}const p=values.find(r=>r[0]==="people"),s=values.find(r=>r[0]==="startDate"),v=values.find(r=>r[0]==="values");if(!p||!s||!v)return null;const nextValues=v.slice(1,9).map(item=>String(item||"").padEnd(4,"0").slice(0,4).split(""));if(nextValues.length!==8)return null;return{people:p.slice(1,4).map((name,i)=>String(name||`人員${i+1}`)),startDate:String(s[1]||"2026-06-08").slice(0,10),values:nextValues}}
     function setSyncStatus(text){document.getElementById("syncStatus").textContent=text}
     function callSheetApi(params){return new Promise((resolve,reject)=>{const cb=`sheetCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;const script=document.createElement("script");const search=new URLSearchParams({...params,callback:cb,t:Date.now()});window[cb]=data=>{delete window[cb];script.remove();resolve(data)};script.onerror=()=>{delete window[cb];script.remove();reject(new Error("sync failed"))};script.src=`${SHEET_API_URL}?${search.toString()}`;document.body.appendChild(script)})}
     async function loadRemoteState(){try{const data=await callSheetApi({action:"load"});const remote=stateFromSheetRows(data.values);if(remote){state=remote;localStorage.setItem(STORAGE_KEY,JSON.stringify(state));render();setSyncStatus("已同步")}else{state=defaultState();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));render();await saveRemoteState()}}catch{setSyncStatus("離線模式")}}
