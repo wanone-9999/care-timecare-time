@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>陪病時間</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f4ef;
+      --paper: #fffdf8;
+      --ink: #1f2528;
+      --muted: #657074;
+      --line: #ded8ca;
+      --soft: #ebe6dc;
+      --accent: #0f766e;
+      --accent-dark: #0b5f59;
+      --jay: #dceafe;
+      --kuo: #dcfce7;
+      --bin: #fee2e2;
+      --shadow: 0 12px 32px rgba(31, 37, 40, .12);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(180deg, rgba(15, 118, 110, .08), transparent 240px),
+        var(--bg);
+      color: var(--ink);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .app {
+      width: min(100%, 520px);
+      margin: 0 auto;
+      padding: 18px 14px 32px;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      margin: 0 -14px 14px;
+      padding: 12px 14px 10px;
+      background: rgba(246, 244, 239, .92);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(222, 216, 202, .8);
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .month-pill {
+      flex: 0 0 auto;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .tool-button {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--ink);
+      border-radius: 8px;
+      font-weight: 800;
+    }
+
+    .tool-button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .name-panel {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 12px 0 16px;
+    }
+
+    .name-panel label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .name-panel input {
+      width: 100%;
+      min-height: 42px;
+      padding: 8px 9px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      color: var(--ink);
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .week-strip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 2px 0 10px;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+    }
+
+    .week-strip::-webkit-scrollbar {
+      display: none;
+    }
+
+    .day-tab {
+      flex: 0 0 68px;
+      min-height: 62px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+      scroll-snap-align: start;
+      box-shadow: 0 2px 8px rgba(31, 37, 40, .05);
+    }
+
+    .day-tab.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(15, 118, 110, .2);
+    }
+
+    .day-tab strong {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .day-tab span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .day-card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .day-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fffaf0;
+    }
+
+    .day-head h2 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+
+    .day-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .shift-list {
+      display: grid;
+    }
+
+    .shift-row {
+      display: grid;
+      grid-template-columns: 58px 1fr;
+      align-items: center;
+      min-height: 74px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--soft);
+      gap: 10px;
+    }
+
+    .shift-row:last-child {
+      border-bottom: 0;
+    }
+
+    .shift-name {
+      font-size: 22px;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .people {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .person-button {
+      min-height: 52px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: 900;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .person-button[data-person="0"] {
+      background: var(--jay);
+    }
+
+    .person-button[data-person="1"] {
+      background: var(--kuo);
+    }
+
+    .person-button[data-person="2"] {
+      background: var(--bin);
+    }
+
+    .person-button.active {
+      border-color: var(--accent-dark);
+      box-shadow: inset 0 0 0 2px var(--accent-dark);
+    }
+
+    .result-page {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .result-card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      overflow-x: auto;
+    }
+
+    .result-table {
+      min-width: 680px;
+    }
+
+    .result-row {
+      display: grid;
+      grid-template-columns: 58px repeat(8, minmax(72px, 1fr));
+      min-height: 52px;
+      align-items: stretch;
+      border-bottom: 1px solid var(--soft);
+      text-align: center;
+      font-weight: 900;
+    }
+
+    .result-row:last-child {
+      border-bottom: 0;
+    }
+
+    .result-cell {
+      display: grid;
+      place-items: center;
+      padding: 8px 5px;
+      border-left: 1px solid var(--soft);
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .result-label {
+      border-left: 0;
+      background: #fffaf0;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+
+    .result-label span,
+    .result-head span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .result-head {
+      min-height: 40px;
+      color: var(--muted);
+      background: #fbfaf6;
+      font-size: 14px;
+    }
+
+    .result-person-0 {
+      background: var(--jay);
+    }
+
+    .result-person-1 {
+      background: var(--kuo);
+    }
+
+    .result-person-2 {
+      background: var(--bin);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      background: #1f2528;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-weight: 800;
+      transition: .18s ease;
+      z-index: 50;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (min-width: 700px) {
+      .app {
+        padding-top: 28px;
+      }
+
+      header {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        margin: 0 0 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="title-row">
+        <h1>陪病時間</h1>
+        <div class="month-pill" id="dateRange">6/8 - 6/15</div>
+      </div>
+      <div class="toolbar">
+        <button class="tool-button" id="prevButton" type="button">上一段</button>
+        <button class="tool-button" id="nextButton" type="button">下一段</button>
+        <button class="tool-button primary" id="copyButton" type="button">複製文字</button>
+      </div>
+      <section class="name-panel" aria-label="人員名稱">
+        <label>人員 1<input id="person0" value="杰" maxlength="4"></label>
+        <label>人員 2<input id="person1" value="國" maxlength="4"></label>
+        <label>人員 3<input id="person2" value="斌" maxlength="4"></label>
+      </section>
+      <nav class="week-strip" id="weekStrip" aria-label="日期"></nav>
+    </header>
+
+    <section class="day-card edit-page" id="dayCard"></section>
+    <section class="result-page" id="resultPage"></section>
+  </main>
+  <div class="toast" id="toast">已更新</div>
+
+  <script>
+    const STORAGE_KEY = "three-person-schedule-v1";
+    const shifts = ["早", "午", "晚", "夜"];
+    const weekNames = ["日", "一", "二", "三", "四", "五", "六"];
+    const defaultValues = [
+      ["0", "0", "1", "1"],
+      ["1", "1", "1", "1"],
+      ["1", "1", "1", "0"],
+      ["0", "1", "1", "1"],
+      ["1", "1", "1", "1"],
+      ["1", "1", "1", "1"],
+      ["0", "0", "0", "0"],
+      ["0", "0", "0", "1"]
+    ];
+
+    let state = loadState();
+    let activeDay = 0;
+    let toastTimer;
+
+    function toLocalDate(iso) {
+      const [year, month, day] = iso.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    function toISO(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function addDays(iso, amount) {
+      const date = toLocalDate(iso);
+      date.setDate(date.getDate() + amount);
+      return toISO(date);
+    }
+
+    function formatDate(iso) {
+      const date = toLocalDate(iso);
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+
+    function loadState() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return {
+            people: parsed.people || ["杰", "國", "斌"],
+            startDate: parsed.startDate || "2026-06-08",
+            values: parsed.values || parsed.days?.map((day) => day.values) || structuredClone(defaultValues)
+          };
+        } catch {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      }
+      return {
+        people: ["杰", "國", "斌"],
+        startDate: "2026-06-08",
+        values: structuredClone(defaultValues)
+      };
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById("toast");
+      toast.textContent = text;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 1100);
+    }
+
+    function personLabel(value) {
+      return state.people[Number(value)] || "";
+    }
+
+    function currentDays() {
+      return state.values.map((values, index) => {
+        const iso = addDays(state.startDate, index);
+        const date = toLocalDate(iso);
+        return {
+          date: formatDate(iso),
+          week: weekNames[date.getDay()],
+          values
+        };
+      });
+    }
+
+    function renderTabs() {
+      const weekStrip = document.getElementById("weekStrip");
+      weekStrip.innerHTML = "";
+      currentDays().forEach((day, index) => {
+        const button = document.createElement("button");
+        button.className = `day-tab${index === activeDay ? " active" : ""}`;
+        button.type = "button";
+        button.innerHTML = `<strong>${day.date}</strong><span>${day.week}</span>`;
+        button.addEventListener("click", () => {
+          activeDay = index;
+          render();
+        });
+        weekStrip.appendChild(button);
+      });
+    }
+
+    function renderDay() {
+      const day = currentDays()[activeDay];
+      const dayCard = document.getElementById("dayCard");
+      dayCard.innerHTML = `
+        <div class="day-head">
+          <div>
+            <h2>${day.date}</h2>
+            <p>星期${day.week}</p>
+          </div>
+        </div>
+        <div class="shift-list"></div>
+      `;
+
+      const list = dayCard.querySelector(".shift-list");
+      shifts.forEach((shift, shiftIndex) => {
+        const row = document.createElement("div");
+        row.className = "shift-row";
+        row.innerHTML = `<div class="shift-name">${shift}</div><div class="people"></div>`;
+        const people = row.querySelector(".people");
+        ["0", "1", "2"].forEach((person) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `person-button${day.values[shiftIndex] === person ? " active" : ""}`;
+          button.dataset.person = person;
+          button.textContent = personLabel(person);
+          button.addEventListener("click", () => {
+            state.values[activeDay][shiftIndex] = person;
+            saveState();
+            render();
+            showToast(`${day.date} ${shift}：${personLabel(person)}`);
+          });
+          people.appendChild(button);
+        });
+        list.appendChild(row);
+      });
+    }
+
+    function renderNames() {
+      state.people.forEach((name, index) => {
+        const input = document.getElementById(`person${index}`);
+        input.value = name;
+      });
+    }
+
+    function renderResult() {
+      const resultPage = document.getElementById("resultPage");
+      const days = currentDays();
+      const header = `
+        <div class="result-row result-head">
+          <div class="result-cell result-label">時間</div>
+          ${days.map((day) => `<div class="result-cell">${day.date}<br><span>星期${day.week}</span></div>`).join("")}
+        </div>
+      `;
+      const rows = shifts.map((shift, shiftIndex) => {
+        const cells = days.map((day) => {
+          const value = day.values[shiftIndex];
+          return `
+            <div class="result-cell result-person-${value}">
+              ${personLabel(value)}
+            </div>
+          `;
+        }).join("");
+        return `
+          <div class="result-row">
+            <div class="result-cell result-label">${shift}</div>
+            ${cells}
+          </div>
+        `;
+      }).join("");
+
+      resultPage.innerHTML = `<div class="result-card"><div class="result-table">${header}${rows}</div></div>`;
+    }
+
+    function render() {
+      document.getElementById("dateRange").textContent = `${formatDate(state.startDate)} - ${formatDate(addDays(state.startDate, 7))}`;
+      renderNames();
+      renderTabs();
+      renderDay();
+      renderResult();
+    }
+
+    function scheduleText() {
+      const lines = ["陪病時間"];
+      currentDays().forEach((day) => {
+        const values = shifts.map((shift, index) => `${shift}:${personLabel(day.values[index])}`).join(" ");
+        lines.push(`${day.date}(${day.week}) ${values}`);
+      });
+      return lines.join("\n");
+    }
+
+    state.people.forEach((_, index) => {
+      document.getElementById(`person${index}`).addEventListener("input", (event) => {
+        state.people[index] = event.target.value.trim() || `人員${index + 1}`;
+        saveState();
+        render();
+      });
+    });
+
+    document.getElementById("prevButton").addEventListener("click", () => {
+      state.startDate = addDays(state.startDate, -8);
+      activeDay = 0;
+      saveState();
+      render();
+      showToast("已切到上一段");
+    });
+
+    document.getElementById("nextButton").addEventListener("click", () => {
+      state.startDate = addDays(state.startDate, 8);
+      activeDay = 0;
+      saveState();
+      render();
+      showToast("已切到下一段");
+    });
+
+    document.getElementById("copyButton").addEventListener("click", async () => {
+      const text = scheduleText();
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast("已複製");
+      } catch {
+        showToast(text);
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
