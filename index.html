@@ -105,6 +105,14 @@
       color: white;
     }
 
+    .sync-status {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      text-align: right;
+    }
+
     .name-panel {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -396,6 +404,7 @@
         <button class="tool-button" id="nextButton" type="button">下一段</button>
         <button class="tool-button primary" id="copyButton" type="button">複製文字</button>
       </div>
+      <div class="sync-status" id="syncStatus">讀取中</div>
       <section class="name-panel" aria-label="人員名稱">
         <label>人員 1<input id="person0" value="杰" maxlength="4"></label>
         <label>人員 2<input id="person1" value="國" maxlength="4"></label>
@@ -411,6 +420,7 @@
 
   <script>
     const STORAGE_KEY = "three-person-schedule-v1";
+    const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbyIJhP_OBUwRn0P_8_DA_AVGHnv6R8CYvigttDbIcIrIpZ0blvYr48OgRxprQMKiw1H/exec";
     const shifts = ["早", "午", "晚", "夜"];
     const weekNames = ["日", "一", "二", "三", "四", "五", "六"];
     const defaultValues = [
@@ -427,6 +437,7 @@
     let state = loadState();
     let activeDay = 0;
     let toastTimer;
+    let saveTimer;
 
     function toLocalDate(iso) {
       const [year, month, day] = iso.split("-").map(Number);
@@ -472,8 +483,91 @@
       };
     }
 
+    function sheetRowsFromState() {
+      const rows = [
+        ["陪病時間資料"],
+        ["people", ...state.people],
+        ["startDate", state.startDate],
+        ["date", "week", ...shifts]
+      ];
+
+      currentDays().forEach((day) => {
+        rows.push([
+          day.date,
+          day.week,
+          ...day.values.map((value) => personLabel(value))
+        ]);
+      });
+
+      rows.push(["values", ...state.values.map((values) => values.join(""))]);
+      return rows;
+    }
+
+    function stateFromSheetRows(values) {
+      if (!Array.isArray(values) || values.length === 0) return null;
+      const peopleRow = values.find((row) => row[0] === "people");
+      const startDateRow = values.find((row) => row[0] === "startDate");
+      const valuesRow = values.find((row) => row[0] === "values");
+      if (!peopleRow || !startDateRow || !valuesRow) return null;
+
+      const nextValues = valuesRow.slice(1, 9).map((item) => {
+        const text = String(item || "");
+        return [0, 1, 2, 3].map((index) => text[index] || "0");
+      });
+
+      if (nextValues.length !== 8) return null;
+
+      return {
+        people: peopleRow.slice(1, 4).map((name, index) => String(name || `人員${index + 1}`)),
+        startDate: String(startDateRow[1] || "2026-06-08"),
+        values: nextValues
+      };
+    }
+
+    function setSyncStatus(text) {
+      document.getElementById("syncStatus").textContent = text;
+    }
+
+    async function loadRemoteState() {
+      try {
+        const response = await fetch(`${SHEET_API_URL}?t=${Date.now()}`);
+        const data = await response.json();
+        const remoteState = stateFromSheetRows(data.values);
+        if (remoteState) {
+          state = remoteState;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          render();
+          setSyncStatus("已同步");
+        } else {
+          await saveRemoteState();
+        }
+      } catch {
+        setSyncStatus("離線模式");
+      }
+    }
+
+    async function saveRemoteState() {
+      setSyncStatus("儲存中");
+      try {
+        await fetch(SHEET_API_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify({ values: sheetRowsFromState() })
+        });
+        setSyncStatus("已儲存");
+      } catch {
+        setSyncStatus("未同步");
+      }
+    }
+
     function saveState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      setSyncStatus("等待儲存");
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveRemoteState, 500);
     }
 
     function showToast(text) {
@@ -641,6 +735,7 @@
     });
 
     render();
+    loadRemoteState();
   </script>
 </body>
 </html>
